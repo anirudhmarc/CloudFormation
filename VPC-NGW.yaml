@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploys a VPC with one private subnet and one public subnet with a NAT Gateway
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.151.0.0/16
+      EnableDnsHostnames: 'true'
+      EnableDnsSupport: 'true '
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: cfntest
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+  PrivateSubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.151.0.0/24
+      Tags:
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+        - Key: Name
+          Value: cfnprivatesubnet
+  PublicSubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.151.1.0/24
+      Tags:
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+        - Key: Name
+          Value: cfnpublicsubnet
+  Igw:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cfnigw
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref Igw
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: '"Name'
+          Value: cfnpublicrtb
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: '"Name'
+          Value: cfnprivatertb
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+  EIP:
+#    DependsOn: VPCGatewayAttach
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  NAT:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - EIP
+        - AllocationId
+      SubnetId: !Ref PrivateSubnet
+      Tags:
+        - Key: foo
+          Value: bar
+
+  PrivateRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NAT
+  PublicRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      InternetGatewayId: !Ref Igw
